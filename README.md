@@ -1,5 +1,7 @@
 # Resumo de Ocorrências por Técnico (SGP → WhatsApp)
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://resumo-ocorrencias-sgp.streamlit.app/)
+
 Aplicativo Streamlit que lê o "Relatório de Ocorrência" exportado em Excel do
 painel SGP e gera automaticamente o resumo em texto (pronto para colar no
 WhatsApp), com sugestão de ordem de atendimento por técnico, sem depender de
