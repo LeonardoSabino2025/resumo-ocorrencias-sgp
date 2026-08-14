@@ -294,7 +294,7 @@ def _tech_block_inicio(tech: str, df_tech_today_open: pd.DataFrame, report_date:
     if df_tech_today_open.empty:
         return None
 
-    lines = [f"🔧 {tech.upper()}", "Tipo de ocorrência:"]
+    lines = [f"🔧 *{tech.upper()}*", "Tipo de ocorrência:"]
     counted_groups = set()
     for grupo in TECH_CORE_GROUP_ORDER:
         n = int((df_tech_today_open["Grupo"] == grupo).sum())
@@ -316,7 +316,7 @@ def _tech_block_inicio(tech: str, df_tech_today_open: pd.DataFrame, report_date:
         rows = df_tech_today_open[df_tech_today_open["Grupo"] == grupo]
         if rows.empty:
             continue
-        lines.append(f"{grupo.upper()}:")
+        lines.append(f"*{grupo.upper()}:*")
         for _, row in rows.sort_values(by="Bairro", key=lambda s: s.map(cluster_sort_key)).iterrows():
             lines.append(f"✔️ Cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
 
@@ -340,7 +340,7 @@ def _grouped_client_lines(df_subset: pd.DataFrame) -> list[str]:
     order = list(dict.fromkeys(df_subset["Grupo"].tolist()))
     for grupo in order:
         rows = df_subset[df_subset["Grupo"] == grupo]
-        lines.append(f"{grupo.upper()}:")
+        lines.append(f"*{grupo.upper()}:*")
         for _, row in rows.iterrows():
             lines.append(f"✔️ Cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
     return lines
@@ -351,7 +351,7 @@ def _tech_block_final(tech: str, df_tech_closed: pd.DataFrame, df_tech_reagendad
         return None
 
     combined = pd.concat([df_tech_closed, df_tech_reagendada])
-    lines = [f"🔧 {tech.upper()}", "Tipo de ocorrência:"]
+    lines = [f"🔧 *{tech.upper()}*", "Tipo de ocorrência:"]
     counted_groups = set()
     for grupo in TECH_CORE_GROUP_ORDER:
         n = int((combined["Grupo"] == grupo).sum())
