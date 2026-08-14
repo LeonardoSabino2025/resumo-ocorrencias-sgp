@@ -284,7 +284,7 @@ def _general_totals_block(df: pd.DataFrame, mode: str, report_date: date) -> lis
             if n_enc == 0 and n_reagendadas == 0:
                 continue
             if n_reagendadas > 0:
-                lines.append(f"✔️ {grupo}: {n_enc} encerradas hoje | {n_reagendadas} abertas para amanhã;")
+                lines.append(f"✔️ {grupo}: {n_enc} encerradas hoje | {n_reagendadas} reagendadas;")
             else:
                 lines.append(f"✔️ {grupo}: {n_enc} encerradas hoje;")
     return lines
@@ -329,8 +329,20 @@ def _tech_block_inicio(tech: str, df_tech_today_open: pd.DataFrame, report_date:
         lines.append("")
         lines.append("🗺️ Sugestão de ordem de atendimento:")
         for idx, s in enumerate(stops, start=1):
-            lines.append(f"{idx}. {s.client_first_name} - {s.bairro}")
+            suffix = " (Partindo de Pitangui)" if idx == 1 else ""
+            lines.append(f"{idx}. {s.client_first_name} - {s.bairro}{suffix}")
 
+    return lines
+
+
+def _grouped_client_lines(df_subset: pd.DataFrame) -> list[str]:
+    lines = []
+    order = list(dict.fromkeys(df_subset["Grupo"].tolist()))
+    for grupo in order:
+        rows = df_subset[df_subset["Grupo"] == grupo]
+        lines.append(f"{grupo.upper()}:")
+        for _, row in rows.iterrows():
+            lines.append(f"✔️ Cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
     return lines
 
 
@@ -359,14 +371,12 @@ def _tech_block_final(tech: str, df_tech_closed: pd.DataFrame, df_tech_reagendad
     if df_tech_closed.empty:
         lines.append("Nenhuma ocorrência encerrada hoje")
     else:
-        for _, row in df_tech_closed.iterrows():
-            lines.append(f"✔️ {row['Grupo']} | Cliente: {first_name(row['Cliente'])} em: {title_case(row['Bairro'])};")
+        lines.extend(_grouped_client_lines(df_tech_closed))
 
     if not df_tech_reagendada.empty:
         lines.append("")
         lines.append("Ocorrências reagendadas para amanhã:")
-        for _, row in df_tech_reagendada.iterrows():
-            lines.append(f"✔️ {row['Grupo']} | Cliente: {first_name(row['Cliente'])} em: {title_case(row['Bairro'])};")
+        lines.extend(_grouped_client_lines(df_tech_reagendada))
 
     stops = [
         Stop(first_name(r["Cliente"]), title_case(r["Bairro"]), r["Tipo"])
