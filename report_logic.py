@@ -284,7 +284,7 @@ def _general_totals_block(df: pd.DataFrame, mode: str, report_date: date) -> lis
             if n_enc == 0 and n_reagendadas == 0:
                 continue
             if n_reagendadas > 0:
-                lines.append(f"✔️ {grupo}: {n_enc} encerradas hoje / {n_reagendadas} abertas para amanhã;")
+                lines.append(f"✔️ {grupo}: {n_enc} encerradas hoje | {n_reagendadas} abertas para amanhã;")
             else:
                 lines.append(f"✔️ {grupo}: {n_enc} encerradas hoje;")
     return lines
@@ -329,8 +329,7 @@ def _tech_block_inicio(tech: str, df_tech_today_open: pd.DataFrame, report_date:
         lines.append("")
         lines.append("🗺️ Sugestão de ordem de atendimento:")
         for idx, s in enumerate(stops, start=1):
-            suffix = " (Rota lógica partindo de Pitangui)" if idx == 1 else ""
-            lines.append(f"{idx}. {s.client_first_name} - {s.bairro}{suffix}")
+            lines.append(f"{idx}. {s.client_first_name} - {s.bairro}")
 
     return lines
 
@@ -361,13 +360,13 @@ def _tech_block_final(tech: str, df_tech_closed: pd.DataFrame, df_tech_reagendad
         lines.append("Nenhuma ocorrência encerrada hoje")
     else:
         for _, row in df_tech_closed.iterrows():
-            lines.append(f"✔️ Tipo: {row['Grupo']} cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
+            lines.append(f"✔️ {row['Grupo']} | Cliente: {first_name(row['Cliente'])} em: {title_case(row['Bairro'])};")
 
     if not df_tech_reagendada.empty:
         lines.append("")
         lines.append("Ocorrências reagendadas para amanhã:")
         for _, row in df_tech_reagendada.iterrows():
-            lines.append(f"✔️ Tipo: {row['Grupo']} cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
+            lines.append(f"✔️ {row['Grupo']} | Cliente: {first_name(row['Cliente'])} em: {title_case(row['Bairro'])};")
 
     stops = [
         Stop(first_name(r["Cliente"]), title_case(r["Bairro"]), r["Tipo"])
@@ -378,8 +377,7 @@ def _tech_block_final(tech: str, df_tech_closed: pd.DataFrame, df_tech_reagendad
         lines.append("")
         lines.append("🗺️ Sugestão de ordem de atendimento (reagendadas):")
         for idx, s in enumerate(stops, start=1):
-            suffix = " (Rota lógica partindo de Pitangui)" if idx == 1 else ""
-            lines.append(f"{idx}. {s.client_first_name} - {s.bairro}{suffix}")
+            lines.append(f"{idx}. {s.client_first_name} - {s.bairro}")
 
     return lines
 
