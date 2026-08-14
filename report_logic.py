@@ -90,6 +90,40 @@ def canonical_type(raw_type: str) -> str:
 
 
 # --------------------------------------------------------------------------
+# Agrupamento para exibição no relatório:
+# - "Recolhimento de equipamentos" e "78 Recolhimento de equipamentos -
+#   Urgente" são somados e exibidos juntos como "Recolhimentos".
+# - Tipos que começam com "Suporte - " exibem só o restante do nome
+#   (ex.: "Suporte - Redes" -> "Redes").
+# --------------------------------------------------------------------------
+
+_RECOLHIMENTO_TYPES = {"Recolhimento de equipamentos", "78 Recolhimento de equipamentos - Urgente"}
+
+
+def display_label(tipo_canonical: str) -> str:
+    if tipo_canonical in _RECOLHIMENTO_TYPES:
+        return "Recolhimentos"
+    if tipo_canonical.startswith("Suporte - "):
+        return tipo_canonical[len("Suporte - "):]
+    if tipo_canonical.startswith("Suporte "):
+        return tipo_canonical[len("Suporte "):]
+    return tipo_canonical
+
+
+GENERAL_GROUP_ORDER = []
+for _t in GENERAL_TYPE_ORDER:
+    _label = display_label(_t)
+    if _label not in GENERAL_GROUP_ORDER:
+        GENERAL_GROUP_ORDER.append(_label)
+
+TECH_CORE_GROUP_ORDER = []
+for _t in TECH_CORE_TYPE_ORDER:
+    _label = display_label(_t)
+    if _label not in TECH_CORE_GROUP_ORDER:
+        TECH_CORE_GROUP_ORDER.append(_label)
+
+
+# --------------------------------------------------------------------------
 # Clusters geográficos (usados apenas para ordenar a rota sugerida —
 # o nome do cluster nunca é exibido no relatório)
 # --------------------------------------------------------------------------
@@ -201,6 +235,7 @@ def load_occurrences(file_bytes: bytes) -> pd.DataFrame:
         df[col] = pd.to_datetime(df[col], errors="coerce")
 
     df["Tipo"] = df["Tipo"].apply(canonical_type)
+    df["Grupo"] = df["Tipo"].apply(display_label)
     df["Status"] = df["Status"].astype(str).str.strip()
     df["Responsável"] = df["Responsável"].astype(str).str.strip()
     df["Bairro"] = df["Bairro"].astype(str).str.strip()
@@ -234,24 +269,24 @@ def _general_totals_block(df: pd.DataFrame, mode: str, report_date: date) -> lis
     abertas_hoje = df[(df["Status"].str.upper() == "ABERTA") & (df["Agendamento"].dt.date == report_date)]
     encerradas_hoje = df[(df["Status"].str.upper() == "ENCERRADA") & (df["Encerrada"].dt.date == report_date)]
 
-    for tipo in GENERAL_TYPE_ORDER:
+    for grupo in GENERAL_GROUP_ORDER:
         if mode == "inicio":
-            n = int((abertas_hoje["Tipo"] == tipo).sum())
+            n = int((abertas_hoje["Grupo"] == grupo).sum())
             if n == 0:
                 continue
-            lines.append(f"✔️ {tipo}: {n} abertas;")
+            lines.append(f"✔️ {grupo}: {n} abertas;")
         else:
-            n_enc = int((encerradas_hoje["Tipo"] == tipo).sum())
+            n_enc = int((encerradas_hoje["Grupo"] == grupo).sum())
             n_reagendadas = int(
-                ((df["Tipo"] == tipo) & (df["Status"].str.upper() == "ABERTA") &
+                ((df["Grupo"] == grupo) & (df["Status"].str.upper() == "ABERTA") &
                  (df["Agendamento"].dt.date == report_date)).sum()
             )
             if n_enc == 0 and n_reagendadas == 0:
                 continue
             if n_reagendadas > 0:
-                lines.append(f"✔️ {tipo}: {n_enc} encerradas hoje / {n_reagendadas} abertas para amanhã;")
+                lines.append(f"✔️ {grupo}: {n_enc} encerradas hoje / {n_reagendadas} abertas para amanhã;")
             else:
-                lines.append(f"✔️ {tipo}: {n_enc} encerradas hoje;")
+                lines.append(f"✔️ {grupo}: {n_enc} encerradas hoje;")
     return lines
 
 
@@ -260,28 +295,28 @@ def _tech_block_inicio(tech: str, df_tech_today_open: pd.DataFrame, report_date:
         return None
 
     lines = [f"🔧 {tech.upper()}", "Tipo de ocorrência:"]
-    counted_types = set()
-    for tipo in TECH_CORE_TYPE_ORDER:
-        n = int((df_tech_today_open["Tipo"] == tipo).sum())
-        counted_types.add(tipo)
+    counted_groups = set()
+    for grupo in TECH_CORE_GROUP_ORDER:
+        n = int((df_tech_today_open["Grupo"] == grupo).sum())
+        counted_groups.add(grupo)
         if n == 0:
             continue
-        lines.append(f"✔️ {tipo}: {n}")
+        lines.append(f"✔️ {grupo}: {n}")
 
-    extras = sorted(set(df_tech_today_open["Tipo"]) - counted_types)
-    for tipo in extras:
-        n = int((df_tech_today_open["Tipo"] == tipo).sum())
+    extras = sorted(set(df_tech_today_open["Grupo"]) - counted_groups)
+    for grupo in extras:
+        n = int((df_tech_today_open["Grupo"] == grupo).sum())
         if n == 0:
             continue
-        lines.append(f"✔️ {tipo}: {n}")
+        lines.append(f"✔️ {grupo}: {n}")
 
     lines.append("")
     lines.append("Agendamentos por Tipo de Ocorrência:")
-    for tipo in list(TECH_CORE_TYPE_ORDER) + extras:
-        rows = df_tech_today_open[df_tech_today_open["Tipo"] == tipo]
+    for grupo in list(TECH_CORE_GROUP_ORDER) + extras:
+        rows = df_tech_today_open[df_tech_today_open["Grupo"] == grupo]
         if rows.empty:
             continue
-        lines.append(f"{tipo.upper()}:")
+        lines.append(f"{grupo.upper()}:")
         for _, row in rows.sort_values(by="Bairro", key=lambda s: s.map(cluster_sort_key)).iterrows():
             lines.append(f"✔️ {_fmt_date(report_date)}, cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
 
@@ -306,19 +341,19 @@ def _tech_block_final(tech: str, df_tech_closed: pd.DataFrame, df_tech_reagendad
 
     combined = pd.concat([df_tech_closed, df_tech_reagendada])
     lines = [f"🔧 {tech.upper()}", "Tipo de ocorrência:"]
-    counted_types = set()
-    for tipo in TECH_CORE_TYPE_ORDER:
-        n = int((combined["Tipo"] == tipo).sum())
-        counted_types.add(tipo)
+    counted_groups = set()
+    for grupo in TECH_CORE_GROUP_ORDER:
+        n = int((combined["Grupo"] == grupo).sum())
+        counted_groups.add(grupo)
         if n == 0:
             continue
-        lines.append(f"✔️ {tipo}: {n}")
-    extras = sorted(set(combined["Tipo"]) - counted_types)
-    for tipo in extras:
-        n = int((combined["Tipo"] == tipo).sum())
+        lines.append(f"✔️ {grupo}: {n}")
+    extras = sorted(set(combined["Grupo"]) - counted_groups)
+    for grupo in extras:
+        n = int((combined["Grupo"] == grupo).sum())
         if n == 0:
             continue
-        lines.append(f"✔️ {tipo}: {n}")
+        lines.append(f"✔️ {grupo}: {n}")
 
     lines.append("")
     lines.append("Ocorrências fechadas hoje:")
@@ -326,13 +361,13 @@ def _tech_block_final(tech: str, df_tech_closed: pd.DataFrame, df_tech_reagendad
         lines.append("Nenhuma ocorrência encerrada hoje")
     else:
         for _, row in df_tech_closed.iterrows():
-            lines.append(f"✔️ Tipo: {row['Tipo']} cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
+            lines.append(f"✔️ Tipo: {row['Grupo']} cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
 
     if not df_tech_reagendada.empty:
         lines.append("")
         lines.append("Ocorrências reagendadas para amanhã:")
         for _, row in df_tech_reagendada.iterrows():
-            lines.append(f"✔️ Tipo: {row['Tipo']} cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
+            lines.append(f"✔️ Tipo: {row['Grupo']} cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
 
     stops = [
         Stop(first_name(r["Cliente"]), title_case(r["Bairro"]), r["Tipo"])

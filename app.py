@@ -24,7 +24,18 @@ with st.sidebar:
     )
 
     st.header("2. Data de referência")
-    report_date = st.date_input("Considerar como 'hoje'", value=date.today())
+    report_date = st.date_input(
+        "Considerar como 'hoje'",
+        value=date.today(),
+        format="DD/MM/YYYY",
+        help=(
+            "Data usada como referência para filtrar as ocorrências: no Início de "
+            "Expediente, mostra as ocorrências em aberto agendadas para essa data; "
+            "no Final de Expediente, mostra as encerradas nessa data (e marca como "
+            "'reagendada para amanhã' as que continuarem abertas). Normalmente é o "
+            "dia de hoje, mas dá para mudar para gerar o resumo de outro dia."
+        ),
+    )
 
     st.divider()
     st.caption(
