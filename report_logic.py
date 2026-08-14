@@ -318,7 +318,7 @@ def _tech_block_inicio(tech: str, df_tech_today_open: pd.DataFrame, report_date:
             continue
         lines.append(f"{grupo.upper()}:")
         for _, row in rows.sort_values(by="Bairro", key=lambda s: s.map(cluster_sort_key)).iterrows():
-            lines.append(f"✔️ {_fmt_date(report_date)}, cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
+            lines.append(f"✔️ Cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
 
     stops = [
         Stop(first_name(r["Cliente"]), title_case(r["Bairro"]), r["Tipo"])
