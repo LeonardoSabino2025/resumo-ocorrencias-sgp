@@ -237,6 +237,8 @@ def _general_totals_block(df: pd.DataFrame, mode: str, report_date: date) -> lis
     for tipo in GENERAL_TYPE_ORDER:
         if mode == "inicio":
             n = int((abertas_hoje["Tipo"] == tipo).sum())
+            if n == 0:
+                continue
             lines.append(f"✔️ {tipo}: {n} abertas;")
         else:
             n_enc = int((encerradas_hoje["Tipo"] == tipo).sum())
@@ -244,6 +246,8 @@ def _general_totals_block(df: pd.DataFrame, mode: str, report_date: date) -> lis
                 ((df["Tipo"] == tipo) & (df["Status"].str.upper() == "ABERTA") &
                  (df["Agendamento"].dt.date == report_date)).sum()
             )
+            if n_enc == 0 and n_reagendadas == 0:
+                continue
             if n_reagendadas > 0:
                 lines.append(f"✔️ {tipo}: {n_enc} encerradas hoje / {n_reagendadas} abertas para amanhã;")
             else:
@@ -259,12 +263,16 @@ def _tech_block_inicio(tech: str, df_tech_today_open: pd.DataFrame, report_date:
     counted_types = set()
     for tipo in TECH_CORE_TYPE_ORDER:
         n = int((df_tech_today_open["Tipo"] == tipo).sum())
-        lines.append(f"✔️ {tipo}: {n}")
         counted_types.add(tipo)
+        if n == 0:
+            continue
+        lines.append(f"✔️ {tipo}: {n}")
 
     extras = sorted(set(df_tech_today_open["Tipo"]) - counted_types)
     for tipo in extras:
         n = int((df_tech_today_open["Tipo"] == tipo).sum())
+        if n == 0:
+            continue
         lines.append(f"✔️ {tipo}: {n}")
 
     lines.append("")
@@ -301,11 +309,15 @@ def _tech_block_final(tech: str, df_tech_closed: pd.DataFrame, df_tech_reagendad
     counted_types = set()
     for tipo in TECH_CORE_TYPE_ORDER:
         n = int((combined["Tipo"] == tipo).sum())
-        lines.append(f"✔️ {tipo}: {n}")
         counted_types.add(tipo)
+        if n == 0:
+            continue
+        lines.append(f"✔️ {tipo}: {n}")
     extras = sorted(set(combined["Tipo"]) - counted_types)
     for tipo in extras:
         n = int((combined["Tipo"] == tipo).sum())
+        if n == 0:
+            continue
         lines.append(f"✔️ {tipo}: {n}")
 
     lines.append("")
