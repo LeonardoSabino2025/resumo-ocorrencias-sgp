@@ -4,9 +4,8 @@
 
 Aplicativo Streamlit que lê o "Relatório de Ocorrência" exportado em Excel do
 painel SGP e gera automaticamente o resumo em texto (pronto para colar no
-WhatsApp), com sugestão de ordem de atendimento por técnico, sem depender de
-nenhuma LLM — toda a extração e contagem é feita de forma determinística a
-partir da planilha.
+WhatsApp), sem depender de nenhuma LLM — toda a extração e contagem é feita
+de forma determinística a partir da planilha.
 
 ## Como usar
 

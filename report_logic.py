@@ -1,6 +1,6 @@
 """
 Lógica de leitura da planilha SGP e geração do resumo de ocorrências
-para envio no WhatsApp, com sugestão de rota por técnico.
+para envio no WhatsApp.
 
 Não usa nenhuma LLM: toda a extração, contagem e formatação é feita
 de forma determinística a partir dos dados da planilha.
@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import io
 import unicodedata
-from dataclasses import dataclass, field
 from datetime import date, datetime
 
 import pandas as pd
@@ -124,73 +123,6 @@ for _t in TECH_CORE_TYPE_ORDER:
 
 
 # --------------------------------------------------------------------------
-# Clusters geográficos (usados apenas para ordenar a rota sugerida —
-# o nome do cluster nunca é exibido no relatório)
-# --------------------------------------------------------------------------
-
-_CLUSTER_DEFS = {
-    "BAIXO_VALE": [
-        "Sitio", "Boa Vista", "Capoeira", "Rio dos Indios", "Barro Vermelho",
-        "Capim", "Coqueiros", "Serrinha", "Imbiribeira", "Caiana de Baixo",
-        "Alto do Sitio", "Central Parque Clube", "Zona Rural", "Santa Helena",
-        "Inferninho",
-    ],
-    "CAIANA": ["Caiana de Cima", "Caiana", "Central Park Club", "Caina"],
-    "CONTENDAS": ["Contendas", "Contenda"],
-    "EXTREMOZ_URBANO": [
-        "Alto de Extremoz", "Caminho do Mar", "Santos Dumont", "Moinho dos Ventos",
-        "Bosque das Flores", "Centro", "Vila Nova", "Sport Clube", "Sport Clube 1",
-        "Sport Clube 2", "Sport Clube 3", "Sport Clube 4", "Malvinas",
-        "Costa das Dunas", "Estivas", "Parque das Flores", "Jardim de Extremoz",
-        "Santa Célia", "Village dos Coqueiros", "Quinta das Figueiras", "Iraque",
-        "Renascer", "Jardim Botânico", "Manaaim", "Parque do Servidor Extremoz",
-        "São Miguel Arcanjo", "Loteamento Potiguar", "Central Park 2",
-    ],
-    "LITORAL": ["Pitangui", "Graçandu", "Barra do Rio", "Coqueirinho", "Matinha", "Aldeia", "Alto das Dunas"],
-    "PEDRINHAS": ["Pedrinhas"],
-    "JACUMA": ["Jacumã", "Praia de Jacumã"],
-    "MAXARANGUAPE": ["Maxaranguape", "Barra de Maxaranguape"],
-}
-
-# Ordem heurística de deslocamento partindo da Praia de Pitangui (Litoral).
-CLUSTER_ROUTE_ORDER = [
-    "LITORAL", "PEDRINHAS", "BAIXO_VALE", "CAIANA", "EXTREMOZ_URBANO",
-    "CONTENDAS", "MAXARANGUAPE", "JACUMA", "OUTROS",
-]
-
-_BAIRRO_KEY_TO_CLUSTER: dict[str, str] = {}
-for _cluster, _bairros in _CLUSTER_DEFS.items():
-    for _b in _bairros:
-        _BAIRRO_KEY_TO_CLUSTER[_norm_key(_b)] = _cluster
-
-
-def bairro_to_cluster(bairro: str) -> str:
-    key = _norm_key(bairro)
-    if not key:
-        return "OUTROS"
-    if key in _BAIRRO_KEY_TO_CLUSTER:
-        return _BAIRRO_KEY_TO_CLUSTER[key]
-    # correspondência aproximada: bairro conhecido contido no texto (ou vice-versa)
-    for known_key, cluster in _BAIRRO_KEY_TO_CLUSTER.items():
-        if known_key in key or key in known_key:
-            return cluster
-    # fuzzy match como último recurso
-    import difflib
-    match = difflib.get_close_matches(key, _BAIRRO_KEY_TO_CLUSTER.keys(), n=1, cutoff=0.72)
-    if match:
-        return _BAIRRO_KEY_TO_CLUSTER[match[0]]
-    return "OUTROS"
-
-
-def cluster_sort_key(bairro: str) -> int:
-    cluster = bairro_to_cluster(bairro)
-    try:
-        return CLUSTER_ROUTE_ORDER.index(cluster)
-    except ValueError:
-        return len(CLUSTER_ROUTE_ORDER)
-
-
-# --------------------------------------------------------------------------
 # Leitura da planilha
 # --------------------------------------------------------------------------
 
@@ -247,16 +179,6 @@ def load_occurrences(file_bytes: bytes) -> pd.DataFrame:
 # --------------------------------------------------------------------------
 # Geração do relatório
 # --------------------------------------------------------------------------
-
-@dataclass
-class Stop:
-    client_first_name: str
-    bairro: str
-    tipo: str
-
-    def sort_key(self):
-        return cluster_sort_key(self.bairro)
-
 
 def _fmt_date(d: date) -> str:
     return d.strftime("%d/%m/%Y")
@@ -317,20 +239,8 @@ def _tech_block_inicio(tech: str, df_tech_today_open: pd.DataFrame, report_date:
         if rows.empty:
             continue
         lines.append(f"*{grupo.upper()}:*")
-        for _, row in rows.sort_values(by="Bairro", key=lambda s: s.map(cluster_sort_key)).iterrows():
+        for _, row in rows.iterrows():
             lines.append(f"✔️ Cliente: {first_name(row['Cliente'])} em {title_case(row['Bairro'])};")
-
-    stops = [
-        Stop(first_name(r["Cliente"]), title_case(r["Bairro"]), r["Tipo"])
-        for _, r in df_tech_today_open.iterrows()
-    ]
-    stops.sort(key=lambda s: s.sort_key())
-    if stops:
-        lines.append("")
-        lines.append("🗺️ Sugestão de ordem de atendimento:")
-        for idx, s in enumerate(stops, start=1):
-            suffix = " (Partindo de Pitangui)" if idx == 1 else ""
-            lines.append(f"{idx}. {s.client_first_name} - {s.bairro}{suffix}")
 
     return lines
 
@@ -377,17 +287,6 @@ def _tech_block_final(tech: str, df_tech_closed: pd.DataFrame, df_tech_reagendad
         lines.append("")
         lines.append("Ocorrências reagendadas para amanhã:")
         lines.extend(_grouped_client_lines(df_tech_reagendada))
-
-    stops = [
-        Stop(first_name(r["Cliente"]), title_case(r["Bairro"]), r["Tipo"])
-        for _, r in df_tech_reagendada.iterrows()
-    ]
-    stops.sort(key=lambda s: s.sort_key())
-    if stops:
-        lines.append("")
-        lines.append("🗺️ Sugestão de ordem de atendimento (reagendadas):")
-        for idx, s in enumerate(stops, start=1):
-            lines.append(f"{idx}. {s.client_first_name} - {s.bairro}")
 
     return lines
 

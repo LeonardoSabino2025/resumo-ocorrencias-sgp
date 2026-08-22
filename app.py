@@ -12,7 +12,7 @@ st.set_page_config(
 st.title("🛠️ Resumo de Ocorrências por Técnico")
 st.caption(
     "Gera o resumo (pronto para colar no WhatsApp) a partir do relatório de "
-    "ocorrências exportado do SGP, com sugestão de rota por técnico."
+    "ocorrências exportado do SGP."
 )
 
 with st.sidebar:
